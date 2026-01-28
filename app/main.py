@@ -16,6 +16,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 from models.moe_amc import MoEAMC
 from config.config import Config
 from data.generator import SignalGenerator
+from data.dataset import load_rml_data
 
 app = FastAPI(title="Robust AMC API")
 
@@ -40,6 +41,10 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 config = Config()
 model = None
 generator = None
+rml_signals = None
+rml_labels = None
+rml_snrs = None
+rml_mod_names = None
 
 class PredictionRequest(BaseModel):
     iq_data: list[list[float]]
@@ -54,7 +59,7 @@ class PredictionResponse(BaseModel):
 @app.on_event("startup")
 async def load_model():
     """Load the trained model and signal generator"""
-    global model, generator
+    global model, generator, rml_signals, rml_labels, rml_snrs, rml_mod_names
     
     try:
         # Initialize model
@@ -85,7 +90,13 @@ async def load_model():
             samples_per_symbol=config.SAMPLES_PER_SYMBOL,
             num_symbols=config.NUM_SYMBOLS
         )
-        print("Model and generator loaded successfully!")
+        
+        # Load RML data for sampling if needed
+        if config.DATA_SOURCE == 'rml':
+            print(f"Loading RML dataset for sampling from {config.RML_FILE}...")
+            rml_signals, rml_labels, rml_snrs, rml_mod_names = load_rml_data(config.RML_FILE)
+            
+        print("Model and data sources loaded successfully!")
         
     except Exception as e:
         print(f"Error loading model: {e}")
@@ -102,28 +113,27 @@ async def read_root(request: Request):
 @app.post("/predict", response_model=PredictionResponse)
 async def predict_modulation(request: PredictionRequest):
     """API endpoint for modulation prediction"""
-    # Convert input to numpy array - input is [[r, i], [r, i], ...]
     if not request.iq_data:
         raise HTTPException(status_code=400, detail="Empty IQ data")
         
     iq_data = np.array(request.iq_data, dtype=np.float32)
     
     # Ensure we have the correct length
-    target_length = config.SAMPLE_LENGTH  # 1024
+    target_length = config.SAMPLE_LENGTH
     current_length = len(iq_data)
     
     if current_length < target_length:
-        # Pad with zeros
         padding = np.zeros((target_length - current_length, 2), dtype=np.float32)
         iq_data = np.vstack([iq_data, padding])
     elif current_length > target_length:
-        # Truncate
         iq_data = iq_data[:target_length]
     
-    # iq_data shape is now (1024, 2)
+    # Unit power normalization
+    power = np.mean(iq_data[:, 0]**2 + iq_data[:, 1]**2)
+    if power > 0:
+        iq_data = iq_data / np.sqrt(power)
     
-    # Convert to tensor: shape (1, 2, 1024)
-    # iq_data[:, 0] is real part, iq_data[:, 1] is imag part
+    # Convert to tensor: shape (1, 2, L)
     iq_tensor = torch.tensor(np.stack([iq_data[:, 0], iq_data[:, 1]], axis=0), 
                             dtype=torch.float32).unsqueeze(0).to(config.DEVICE)
     
@@ -133,17 +143,19 @@ async def predict_modulation(request: PredictionRequest):
         probs = torch.softmax(outputs, dim=1)
         confidence, pred = torch.max(probs, 1)
         
-        # Get expert with highest weight (gating_weights is already squeezed in return)
         expert_idx = torch.argmax(gating_weights[0]).item()
         expert_used = config.SNR_BINS[expert_idx]
         
-        # Estimate SNR from the snr_probs (the expert probabilities indicate SNR bin)
-        # Low SNR: -10 to 0, Mid SNR: 0 to 10, High SNR: 10 to 20
-        snr_ranges = [(-10, 0), (0, 10), (10, 20)]
+        # Consistent SNR estimation logic
+        snr_centers = [
+            (config.SNR_LOW[0] + config.SNR_LOW[1]) / 2,
+            (config.SNR_MID[0] + config.SNR_MID[1]) / 2,
+            (config.SNR_HIGH[0] + config.SNR_HIGH[1]) / 2
+        ]
         estimated_snr = 0.0
-        for i, (snr_low, snr_high) in enumerate(snr_ranges):
+        for i, center in enumerate(snr_centers):
             prob = snr_probs[0, i].item()
-            estimated_snr += prob * (snr_low + snr_high) / 2
+            estimated_snr += prob * center
         
         return {
             "prediction": config.MODULATIONS[pred.item()],
@@ -173,12 +185,38 @@ async def generate_signal(request: Request):
                 content={"error": f"Invalid modulation. Must be one of: {config.MODULATIONS}"}
             )
         
-        # Generate signal
-        signal = generator.generate_signal(modulation)
-        
-        # Add noise if SNR is specified
-        if snr is not None:
-            signal = generator.add_awgn(signal, snr)
+        # Generate or sample signal
+        if config.DATA_SOURCE == 'rml' and rml_signals is not None:
+            # Sample from RML dataset
+            mod_idx = config.MODULATIONS.index(modulation)
+            # Find closest SNR in dataset
+            available_snrs = np.unique(rml_snrs)
+            closest_snr = available_snrs[np.argmin(np.abs(available_snrs - snr))]
+            
+            # Find indices for this modulation and SNR
+            mask = (rml_labels == mod_idx) & (rml_snrs == closest_snr)
+            indices = np.where(mask)[0]
+            
+            if len(indices) == 0:
+                # Fallback to any SNR for this modulation
+                indices = np.where(rml_labels == mod_idx)[0]
+                
+            if len(indices) == 0:
+                raise ValueError(f"No samples found for modulation {modulation}")
+                
+            idx = np.random.choice(indices)
+            signal = rml_signals[idx]
+        else:
+            # Generate using generator (only works for supported modulations)
+            try:
+                signal = generator.generate_signal(modulation)
+                if snr is not None:
+                    signal = generator.add_awgn(signal, snr)
+            except KeyError:
+                return JSONResponse(
+                    status_code=400,
+                    content={"error": f"Generation not supported for {modulation} in 'generated' mode. Use 'rml' data source."}
+                )
         
         # Normalize
         signal = signal / np.max(np.abs(signal) + 1e-10)  # Add small value to avoid division by zero

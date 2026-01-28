@@ -128,15 +128,17 @@ Expected performance:
 - **High SNR (10 to 20 dB)**: ~95-99% accuracy
 - **Overall**: 5-10% improvement over baseline single-model approach
 
-## Dataset
+### Dataset Configuration
 
-The system uses synthetically generated I/Q samples with:
-- 8 modulation types
-- SNR range: -10 dB to 20 dB
-- 1024 samples per signal (128 symbols × 8 samples/symbol)
-- AWGN, Rayleigh, and Rician channel models
+The project supports two data sources, which can be toggled in `config/config.py`:
 
-You can also use RadioML datasets by adapting the data loader.
+1.  **Synthetic Data (`DATA_SOURCE = 'generated'`)**: Uses the built-in `SignalGenerator` to create I/Q samples with configurable modulations and channel effects.
+2.  **RadioML 2016.10a (`DATA_SOURCE = 'rml'`)**: Uses the standard `RML2016.10a_dict.pkl` dataset.
+
+To use the RadioML dataset:
+1.  Place `RML2016.10a_dict.pkl` in the `data/` directory.
+2.  Set `DATA_SOURCE = 'rml'` in `config/config.py`.
+3.  The system will automatically adjust modulation classes (11 for RML) and sample lengths (128).
 
 ## Training Tips
 
