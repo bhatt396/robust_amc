@@ -32,7 +32,7 @@ ENV/
 *.pkl
 *.pdf
 results/
-checkpoints/
+
 
 # Jupyter Notebook
 .ipynb_checkpoints

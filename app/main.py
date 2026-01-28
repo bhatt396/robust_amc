@@ -35,6 +35,10 @@ with open(os.path.join(STATIC_DIR, '.gitkeep'), 'w') as f:
 
 # Mount static files
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+# Mount results directory to visualize training performance
+RESULTS_DIR = os.path.join(Config.BASE_DIR, 'results')
+if os.path.exists(RESULTS_DIR):
+    app.mount("/results_assets", StaticFiles(directory=RESULTS_DIR), name="results_assets")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 # Load configuration and model
@@ -108,7 +112,17 @@ async def load_model():
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     """Render the main page"""
-    return templates.TemplateResponse("index.html", {"request": request, "modulations": config.MODULATIONS})
+    # Check for result images
+    performance_plots = []
+    results_dir = Path(Config.RESULTS_PATH)
+    if results_dir.exists():
+        performance_plots = [f.name for f in results_dir.glob("*.png")]
+        
+    return templates.TemplateResponse("index.html", {
+        "request": request, 
+        "modulations": config.MODULATIONS,
+        "performance_plots": performance_plots
+    })
 
 @app.post("/predict", response_model=PredictionResponse)
 async def predict_modulation(request: PredictionRequest):
