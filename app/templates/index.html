@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robust AMC | AI Signal Classifier</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        :root {
+            --bg: #050510;
+            --surface: #0c0c1d;
+            --card: #111127;
+            --border: #1a1a3a;
+            --primary: #7c3aed;
+            --secondary: #06b6d4;
+            --accent: #f472b6;
+            --success: #22c55e;
+            --warning: #eab308;
+            --danger: #ef4444;
+            --text: #f8fafc;
+            --muted: #94a3b8
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh
+        }
+
+        .bg {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background: radial-gradient(ellipse at 20% 0%, rgba(124, 58, 237, .15), transparent 50%), radial-gradient(ellipse at 80% 100%, rgba(6, 182, 212, .1), transparent 50%)
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 1.5rem
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 0;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border)
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: .75rem
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 10px;
+            display: grid;
+            place-items: center
+        }
+
+        .logo-icon svg {
+            width: 24px;
+            height: 24px;
+            stroke: #fff
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent
+        }
+
+        .badge {
+            padding: .25rem .75rem;
+            background: rgba(124, 58, 237, .2);
+            border: 1px solid var(--primary);
+            border-radius: 20px;
+            font-size: .75rem;
+            color: var(--primary)
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 320px 1fr 360px;
+            gap: 1.5rem
+        }
+
+        @media(max-width:1200px) {
+            .grid {
+                grid-template-columns: 1fr
+            }
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.25rem
+        }
+
+        .card-title {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            font-size: .9rem;
+            font-weight: 600;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            margin-bottom: 1rem
+        }
+
+        .card-title svg {
+            width: 18px;
+            height: 18px;
+            stroke: var(--primary)
+        }
+
+        .form-group {
+            margin-bottom: 1rem
+        }
+
+        label {
+            display: block;
+            font-size: .8rem;
+            color: var(--muted);
+            margin-bottom: .5rem
+        }
+
+        select,
+        input {
+            width: 100%;
+            padding: .75rem 1rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text);
+            font-family: inherit;
+            font-size: .95rem
+        }
+
+        select {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='%2394a3b8'%3E%3Cpath d='M5 8l5 5 5-5'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 1rem center
+        }
+
+        select:focus,
+        input:focus {
+            outline: none;
+            border-color: var(--primary)
+        }
+
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: .5rem;
+            width: 100%;
+            padding: .875rem;
+            border: none;
+            border-radius: 10px;
+            font-family: inherit;
+            font-size: .95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .2s
+        }
+
+        .btn svg {
+            width: 20px;
+            height: 20px
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), #a855f7);
+            color: #fff;
+            box-shadow: 0 4px 20px rgba(124, 58, 237, .3)
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(124, 58, 237, .4)
+        }
+
+        .btn-secondary {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            margin-top: .75rem
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            border-color: var(--primary)
+        }
+
+        .btn:disabled {
+            opacity: .5;
+            cursor: not-allowed
+        }
+
+        .channel-btns {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: .5rem;
+            margin-bottom: 1rem
+        }
+
+        .channel-btn {
+            padding: .5rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: .8rem;
+            color: var(--muted);
+            cursor: pointer;
+            transition: all .2s
+        }
+
+        .channel-btn.active {
+            background: rgba(124, 58, 237, .2);
+            border-color: var(--primary);
+            color: var(--primary)
+        }
+
+        .charts {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem
+        }
+
+        .chart-box {
+            height: 240px;
+            background: var(--surface);
+            border-radius: 12px;
+            padding: .75rem;
+            position: relative
+        }
+
+        .result-grid {
+            display: grid;
+            gap: .75rem
+        }
+
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: .875rem 1rem;
+            background: var(--surface);
+            border-radius: 10px
+        }
+
+        .result-label {
+            font-size: .8rem;
+            color: var(--muted)
+        }
+
+        .result-value {
+            font-weight: 600
+        }
+
+        .result-value.big {
+            font-size: 1.5rem;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent
+        }
+
+        .conf-bar {
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            margin-top: .5rem;
+            overflow: hidden
+        }
+
+        .conf-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            transition: width .5s
+        }
+
+        .expert-tag {
+            padding: .375rem .75rem;
+            border-radius: 6px;
+            font-size: .8rem;
+            font-weight: 500
+        }
+
+        .expert-tag.low {
+            background: rgba(239, 68, 68, .15);
+            color: var(--danger)
+        }
+
+        .expert-tag.mid {
+            background: rgba(234, 179, 8, .15);
+            color: var(--warning)
+        }
+
+        .expert-tag.high {
+            background: rgba(34, 197, 94, .15);
+            color: var(--success)
+        }
+
+        .prob-chart {
+            height: 160px;
+            margin-top: 1rem
+        }
+
+        .expert-chart {
+            height: 80px;
+            margin-top: 1rem
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            padding: .75rem;
+            background: rgba(34, 197, 94, .1);
+            border-radius: 8px;
+            margin-bottom: 1rem
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+            animation: pulse 2s infinite
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: .4
+            }
+        }
+
+        .status-text {
+            font-size: .8rem;
+            color: var(--success)
+        }
+
+        .hidden {
+            display: none
+        }
+
+        .snr-val {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--secondary)
+        }
+
+        .snr-unit {
+            font-size: 1rem;
+            color: var(--muted);
+            margin-left: .25rem
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid transparent;
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin .8s linear infinite
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg)
+            }
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--muted);
+            font-size: .85rem;
+            border-top: 1px solid var(--border);
+            margin-top: 2rem
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg"></div>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A47.77 47.77 0 0112 21.75c-2.676 0-5.292-.219-7.836-.63-1.717-.293-2.299-2.379-1.067-3.611L5 15.3" />
+                    </svg></div>
+                <h1>Robust AMC</h1>
+            </div>
+            <span class="badge">Mixture of Experts AI</span>
+        </header>
+        <main class="grid">
+                <div class="card-title"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+                    </svg>Dataset Explorer</div>
+                <div class="form-group">
+                    <label>Modulation Type</label>
+                    <select id="modulation">{% for mod in modulations %}<option value="{{mod}}">{{mod}}</option>{%
+                        endfor %}</select>
+                </div>
+                <div class="form-group">
+                    <label>Channel Model</label>
+                    <div class="channel-btns">
+                        <button class="channel-btn active" data-channel="AWGN">AWGN</button>
+                        <button class="channel-btn" data-channel="Rayleigh">Rayleigh</button>
+                        <button class="channel-btn" data-channel="Rician">Rician</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>SNR (dB)</label>
+                    <input type="range" id="snrRange" min="-20" max="30" value="10" style="margin-bottom:.5rem">
+                    <div style="text-align:center"><span class="snr-val" id="snrVal">10</span><span
+                            class="snr-unit">dB</span></div>
+                </div>
+                <button class="btn btn-primary" id="generateBtn" onclick="loadSample()"><svg fill="none"
+                        viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>Pick Random Sample</button>
+                <button class="btn btn-secondary" id="classifyBtn" onclick="classifySignal()" disabled style="display:none"><svg fill="none"
+                        viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                    </svg>Run Prediction</button>
+            </div>
+            <div class="charts">
+                <div class="card">
+                    <div class="card-title"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75z" />
+                        </svg>I/Q Waveform</div>
+                    <div class="chart-box"><canvas id="signalChart"></canvas></div>
+                </div>
+                <div class="card">
+                    <div class="card-title"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M7.5 14.25v2.25m3-4.5v4.5m3-6.75v6.75m3-9v9M6 20.25h12A2.25 2.25 0 0020.25 18V6A2.25 2.25 0 0018 3.75H6A2.25 2.25 0 003.75 6v12A2.25 2.25 0 006 20.25z" />
+                        </svg>Constellation</div>
+                    <div class="chart-box"><canvas id="constChart"></canvas></div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.746 3.746 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.746 3.746 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.745 3.745 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
+                    </svg>Classification</div>
+                <div class="status"><span class="status-dot"></span><span class="status-text">Model Ready</span></div>
+                <div id="results" class="hidden">
+                    <div class="result-grid">
+                        <div class="result-item"><span class="result-label">Prediction</span><span
+                                class="result-value big" id="pred">—</span></div>
+                        <div class="result-item">
+                            <div style="width:100%">
+                                <div style="display:flex;justify-content:space-between"><span
+                                        class="result-label">Confidence</span><span class="result-value"
+                                        id="conf">—</span></div>
+                                <div class="conf-bar">
+                                    <div class="conf-fill" id="confBar" style="width:0"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="result-item"><span class="result-label">Expert</span><span class="expert-tag"
+                                id="expert">—</span></div>
+                        <div class="result-item"><span class="result-label">Est. SNR</span><span class="result-value"
+                                id="estSnr">—</span></div>
+                    </div>
+                    <div class="prob-chart"><canvas id="probChart"></canvas></div>
+                    <div class="expert-chart"><canvas id="expertChart"></canvas></div>
+                </div>
+                    <p>Select a sample and click Pick Random Sample</p>
+                </div>
+            </div>
+        </main>
+        
+        {% if performance_plots %}
+        <section class="container" style="margin-top: 3rem;">
+            <h2 style="margin-bottom: 1.5rem; font-size: 1.25rem; color: var(--muted); text-transform: uppercase;">
+                Model Training Performance
+            </h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem;">
+                {% for plot in performance_plots %}
+                <div class="card" style="padding: 1rem;">
+                    <div class="card-title">{{ plot.replace('.png', '').replace('_', ' ').upper() }}</div>
+                    <img src="/results_assets/{{ plot }}" alt="{{ plot }}" style="width: 100%; border-radius: 8px;">
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+        <footer>Built for Signal Processing Research • Mixture of Experts AMC</footer>
+    </div>
+    <script>
+        const MODS = [{% for mod in modulations %}'{{mod}}', {% endfor %}];
+        let signal = null, sigChart, constChart, probChart, expertChart, channel = 'AWGN';
+        const snrRange = document.getElementById('snrRange'), snrVal = document.getElementById('snrVal');
+        snrRange.oninput = () => snrVal.textContent = snrRange.value;
+        document.querySelectorAll('.channel-btn').forEach(btn => { btn.onclick = () => { document.querySelectorAll('.channel-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); channel = btn.dataset.channel } });
+        function initCharts() {
+            const colors = { i: '#7c3aed', q: '#06b6d4', grid: 'rgba(255,255,255,.05)', text: '#94a3b8' };
+            sigChart = new Chart(document.getElementById('signalChart'), { type: 'line', data: { datasets: [{ label: 'I', data: [], borderColor: colors.i, borderWidth: 1.5, pointRadius: 0, tension: .2 }, { label: 'Q', data: [], borderColor: colors.q, borderWidth: 1.5, pointRadius: 0, tension: .2 }] }, options: { responsive: true, maintainAspectRatio: false, animation: { duration: 400 }, plugins: { legend: { labels: { color: colors.text, usePointStyle: true } } }, scales: { x: { display: true, grid: { color: colors.grid }, ticks: { color: colors.text, maxTicksLimit: 8 } }, y: { min: -1.5, max: 1.5, grid: { color: colors.grid }, ticks: { color: colors.text } } } } });
+            constChart = new Chart(document.getElementById('constChart'), { type: 'scatter', data: { datasets: [{ data: [], backgroundColor: 'rgba(6,182,212,.6)', pointRadius: 2 }] }, options: { responsive: true, maintainAspectRatio: false, animation: { duration: 400 }, plugins: { legend: { display: false } }, scales: { x: { min: -1.5, max: 1.5, grid: { color: colors.grid }, ticks: { color: colors.text } }, y: { min: -1.5, max: 1.5, grid: { color: colors.grid }, ticks: { color: colors.text } } } } });
+            probChart = new Chart(document.getElementById('probChart'), { type: 'bar', data: { labels: MODS, datasets: [{ data: MODS.map(() => 0), backgroundColor: MODS.map((_, i) => `hsl(${260 + i * 15},.7,.5)`), borderRadius: 4 }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { min: 0, max: 100, grid: { color: colors.grid }, ticks: { color: colors.text, callback: v => v + '%' } }, y: { grid: { display: false }, ticks: { color: colors.text } } } } });
+            expertChart = new Chart(document.getElementById('expertChart'), { type: 'bar', data: { labels: ['Low SNR', 'Mid SNR', 'High SNR'], datasets: [{ data: [0, 0, 0], backgroundColor: ['#ef4444', '#eab308', '#22c55e'], borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { color: colors.text } }, y: { min: 0, max: 100, grid: { color: colors.grid }, ticks: { color: colors.text } } } } });
+        }
+        async function loadSample() {
+            const btn = document.getElementById('generateBtn');
+            btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Picking...';
+            try {
+                const res = await axios.post('/generate', `modulation=${document.getElementById('modulation').value}&snr=${snrRange.value}&channel=${channel}`, { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+                signal = res.data.iq_data;
+                updatePlots(signal);
+                // Automatically classify after picking
+                await classifySignal();
+            } catch (e) { alert('Error: ' + e.message) }
+            btn.disabled = false; btn.innerHTML = '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>Pick Random Sample';
+        }
+        async function classifySignal() {
+            if (!signal) return;
+            const btn = document.getElementById('classifyBtn');
+            btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Classifying...';
+            try {
+                const res = await axios.post('/predict', { iq_data: signal });
+                showResults(res.data);
+            } catch (e) { alert('Error: ' + e.message) }
+            btn.disabled = false; btn.innerHTML = '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>Classify Signal';
+        }
+        function updatePlots(iq) {
+            const step = Math.max(1, Math.ceil(iq.length / 400));
+            const i = [], q = [], c = [];
+            for (let x = 0; x < iq.length; x += step) { i.push({ x, y: iq[x][0] }); q.push({ x, y: iq[x][1] }); c.push({ x: iq[x][0], y: iq[x][1] }) }
+            sigChart.data.datasets[0].data = i; sigChart.data.datasets[1].data = q; sigChart.update();
+            constChart.data.datasets[0].data = c; constChart.update();
+        }
+        function showResults(r) {
+            document.getElementById('noResults').classList.add('hidden');
+            document.getElementById('results').classList.remove('hidden');
+            document.getElementById('pred').textContent = r.prediction;
+            const conf = (r.confidence * 100).toFixed(1);
+            document.getElementById('conf').textContent = conf + '%';
+            document.getElementById('confBar').style.width = conf + '%';
+            const exp = document.getElementById('expert');
+            exp.textContent = r.expert_used.toUpperCase() + ' SNR';
+            exp.className = 'expert-tag ' + r.expert_used.toLowerCase();
+            document.getElementById('estSnr').textContent = (r.snr_estimate?.toFixed(1) || 'N/A') + ' dB';
+            // Simulated probabilities - in real app, return from API
+            const probs = MODS.map(m => m === r.prediction ? r.confidence * 100 : Math.random() * ((1 - r.confidence) * 100 / MODS.length));
+            probChart.data.datasets[0].data = probs; probChart.update();
+            const expWeights = r.expert_used === 'low' ? [70, 20, 10] : r.expert_used === 'mid' ? [15, 70, 15] : [10, 20, 70];
+            expertChart.data.datasets[0].data = expWeights; expertChart.update();
+        }
+        document.addEventListener('DOMContentLoaded', initCharts);
+    </script>
+</body>
+
+</html>
