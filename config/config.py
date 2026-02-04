@@ -4,7 +4,7 @@ import torch
 class Config:
     # Dataset source: 'generated' or 'rml'
     DATA_SOURCE = 'rml' 
-    RML_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'RML2016.10a_dict.pkl')
+    RML_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data','radioml2016', 'RML2016.10a_dict.pkl')
     
     # Dataset parameters
     GENERATED_MODULATIONS = ['BPSK', 'QPSK', '8PSK', 'QAM16', 'QAM64', 'GFSK', 'CPFSK', 'PAM4']
