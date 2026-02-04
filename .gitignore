@@ -32,8 +32,7 @@ ENV/
 *.pkl
 *.pdf
 results/
-data/radioml2016/
-
+/data/radioml2016
 
 # Jupyter Notebook
 .ipynb_checkpoints
