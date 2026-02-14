@@ -32,6 +32,7 @@ SNR-Adaptive-AMC/
 │   └── moe_amc.py          # Complete MoE system
 ├── utils/
 │   ├── __init__.py
+│   ├── dataset.py          # dataset downloader
 │   ├── metrics.py          # Evaluation metrics
 │   └── visualization.py    # Plotting utilities
 ├── config/
@@ -60,9 +61,18 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 3. Install dependencies:
 ```bash
 pip install -r requirements.txt
+pip install -r requirements-api.txt
 ```
 
 ## Usage
+
+### Dataset
+
+Download the dataset:
+
+```bash
+python utils/dataset.py
+```
 
 ### Training
 
